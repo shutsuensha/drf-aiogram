@@ -1,0 +1,58 @@
+services:
+  backend:
+    build:
+      context: ./
+      dockerfile: docker/backend/Dockerfile
+    container_name: backend_api
+    command: >
+      sh -c "
+        python backend/manage.py migrate &&
+        python backend/manage.py runserver 0.0.0.0:8000
+      "
+    networks:
+      - docker-network
+
+  celery-worker:
+    build:
+      context: ./
+      dockerfile: docker/backend/Dockerfile
+    container_name: celery_worker_container
+    command: "celery -A src worker --loglevel=info"
+    networks:
+      - docker-network
+
+  celery-redbeat:
+    build:
+      context: ./
+      dockerfile: docker/backend/Dockerfile
+    container_name: celery_redbeat_container
+    command: "celery -A src beat --loglevel=info"
+    networks:
+      - docker-network
+
+  bot:
+    build:
+      context: ./
+      dockerfile: docker/bot/Dockerfile
+    container_name: telegram_bot
+    command: python bot/main.py
+    depends_on:
+      - backend
+    networks:
+      - docker-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx_proxy
+    ports:
+      - "8080:80"
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+    networks:
+      - docker-network
+
+
+networks:
+  docker-network:
